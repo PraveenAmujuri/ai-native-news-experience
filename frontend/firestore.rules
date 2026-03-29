@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: uid
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - persona: string (required, enum: investor, founder, student)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional)
+    //
+    // Collection: users/{uid}/saved_articles
+    // Document ID: articleId
+    // Fields:
+    //   - userId: string (required)
+    //   - articleId: string (required)
+    //   - title: string (required)
+    //   - summary: string (required)
+    //   - sourceUrl: string (optional)
+    //   - savedAt: string (required, date-time)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "vv5087867@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidPersona(persona) {
+      return persona in ['investor', 'founder', 'student'];
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'persona']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             isValidPersona(data.persona) &&
+             (!('role' in data) || data.role in ['admin', 'user']);
+    }
+
+    function isValidSavedArticle(data, userId) {
+      return data.keys().hasAll(['userId', 'articleId', 'title', 'savedAt']) &&
+             data.userId == userId &&
+             data.userId == request.auth.uid;
+    }
+
+    function isValidPulseUpdate(data) {
+      return data.keys().hasAll(['id', 'text', 'type', 'timestamp']) &&
+             data.id is string &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 500 &&
+             data.type in ['market', 'breaking', 'policy'] &&
+             data.timestamp is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && isValidUser(request.resource.data);
+      allow update: if (isOwner(uid) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
+      
+      match /saved_articles/{articleId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && isValidSavedArticle(request.resource.data, uid);
+        allow delete: if isOwner(uid);
+      }
+    }
+
+    match /live_pulse/{updateId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

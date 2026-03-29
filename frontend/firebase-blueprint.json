@@ -1,0 +1,58 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user preferences and persona.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "persona": { "type": "string", "enum": ["investor", "founder", "student"] },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["uid", "email", "persona"]
+    },
+    "SavedArticle": {
+      "title": "Saved Article",
+      "description": "News articles saved by the user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "articleId": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "sourceUrl": { "type": "string" },
+        "savedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "articleId", "title", "savedAt"]
+    },
+    "PulseUpdate": {
+      "title": "Pulse Update",
+      "description": "Real-time news updates for the pulse ticker.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["market", "breaking", "policy"] },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "text", "type", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile documents."
+    },
+    "/users/{uid}/saved_articles/{articleId}": {
+      "schema": "SavedArticle",
+      "description": "Articles saved by a specific user."
+    },
+    "/live_pulse/{updateId}": {
+      "schema": "PulseUpdate",
+      "description": "Real-time pulse updates for all users."
+    }
+  }
+}
